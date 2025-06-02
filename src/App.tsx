@@ -12,6 +12,7 @@ import CheckoutPage from './pages/checkout/CheckoutPage';
 // Products
 import ProductsPage from './pages/product/ProductsPage';
 import ProductEditPage from './pages/product/ProductEditPage';
+import OrdersPage from './pages/orders/OrdersPage';
 
 const queryClient = new QueryClient();
 
@@ -31,6 +32,7 @@ const App: React.FC = () => {
             <Route path="/products" element={<ProductsPage />} />
             <Route path="/products/new" element={<ProductEditPage />} />
             <Route path="/products/edit/:id" element={<ProductEditPage />} />
+            <Route path="/orders" element={<OrdersPage />} />
 
             {/* Rota coringa */}
             <Route path="*" element={<Navigate to="/login" />} />
