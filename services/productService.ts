@@ -1,73 +1,104 @@
+import axios from 'axios';
 import { Product } from '../src/types/Product';
 
-// Simulação de banco de dados em memória
-let products: Product[] = [
-  {
-    id: '1',
-    name: 'Smartphone X',
-    description: 'Último modelo com câmera de 108MP',
-    price: 2999.99,
-    category: 'Eletrônicos',
-    stock: 50,
-    createdAt: '2023-01-15',
-    updatedAt: '2023-01-15'
-  },
-  {
-    id: '2',
-    name: 'Notebook Pro',
-    description: '16GB RAM, SSD 512GB, Intel i7',
-    price: 5499.99,
-    category: 'Eletrônicos',
-    stock: 30,
-    createdAt: '2023-02-20',
-    updatedAt: '2023-02-20'
+const API_BASE_URL = 'http://localhost:8000/api';
+
+axios.interceptors.request.use(config => {
+  const token = localStorage.getItem('token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
   }
-];
+  return config;
+});
 
 export const getProducts = async (): Promise<Product[]> => {
-  // Simula delay de rede
-  await new Promise(resolve => setTimeout(resolve, 500));
-  return [...products];
+  try {
+    const response = await axios.get(`${API_BASE_URL}/products`);
+    return response.data.data.map((product: any) => ({
+      id: product.id,
+      name: product.name,
+      description: product.description,
+      price: parseFloat(product.price),
+      category: 'General', 
+      stock: product.stock || 0,
+      createdAt: product.created_at,
+      updatedAt: product.updated_at,
+      user_id: product.user_id
+    }));
+  } catch (error) {
+    console.error('Error fetching products:', error);
+    throw error;
+  }
 };
 
 export const getProductById = async (id: string): Promise<Product | undefined> => {
-  await new Promise(resolve => setTimeout(resolve, 500));
-  return products.find(product => product.id === id);
+  try {
+    const response = await axios.get(`${API_BASE_URL}/products/${id}`);
+    const product = response.data.data;
+    return {
+      id: product.id,
+      name: product.name,
+      description: product.description,
+      price: parseFloat(product.price),
+      category: 'General',
+      stock: product.stock || 0,
+      createdAt: product.created_at,
+      updatedAt: product.updated_at,
+      user_id: product.user_id
+    };
+  } catch (error) {
+    console.error(`Error fetching product with id ${id}:`, error);
+    throw error;
+  }
 };
 
 export const createProduct = async (productData: Omit<Product, 'id' | 'createdAt' | 'updatedAt'>): Promise<Product> => {
-  await new Promise(resolve => setTimeout(resolve, 500));
-  
-  const newProduct: Product = {
-    ...productData,
-    id: Math.random().toString(36).substring(2, 9),
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  };
-  
-  products.push(newProduct);
-  return newProduct;
+  try {
+    const response = await axios.post(`${API_BASE_URL}/products`, productData);
+    const product = response.data.data;
+    return {
+      id: product.id,
+      name: product.name,
+      description: product.description,
+      price: parseFloat(product.price),
+      category: 'General',
+      stock: product.stock || 0,
+      createdAt: product.created_at,
+      updatedAt: product.updated_at,
+      user_id: product.user_id
+    };
+  } catch (error) {
+    console.error('Error creating product:', error);
+    throw error;
+  }
 };
 
 export const updateProduct = async (id: string, productData: Partial<Product>): Promise<Product> => {
-  await new Promise(resolve => setTimeout(resolve, 500));
-  
-  const index = products.findIndex(product => product.id === id);
-  if (index === -1) {
-    throw new Error('Produto não encontrado');
+  try {
+    const response = await axios.put(`${API_BASE_URL}/products/${id}`, productData);
+    const product = response.data.data;
+    return {
+      id: product.id,
+      name: product.name,
+      description: product.description,
+      price: parseFloat(product.price),
+      category: 'General',
+      stock: product.stock || 0,
+      createdAt: product.created_at,
+      updatedAt: product.updated_at,
+      user_id: product.user_id
+    };
+  } catch (error) {
+    console.error(`Error updating product with id ${id}:`, error);
+    throw error;
   }
-  
-  const updatedProduct = {
-    ...products[index],
-    ...productData,
-    updatedAt: new Date().toISOString()
-  };
-  
-  products[index] = updatedProduct;
-  return updatedProduct;
 };
 
 export const deleteProduct = async (id: string): Promise<void> => {
-  await new Promise(resolve => setTimeout(resolve, 500));
-  products = products.filter(product => product.id !== id);
+  try {
+    await axios.delete(`${API_BASE_URL}/products/${id}`);
+  } catch (error) {
+    console.error(`Error deleting product with id ${id}:`, error);
+    throw error;
+  }
 };

@@ -16,6 +16,7 @@ const ProductForm: React.FC<ProductFormProps> = ({ initialData, onSubmit, isSubm
     stock: 0,
     imageUrl: ''
   });
+  const [priceError, setPriceError] = useState('');
 
   useEffect(() => {
     if (initialData) {
@@ -30,21 +31,40 @@ const ProductForm: React.FC<ProductFormProps> = ({ initialData, onSubmit, isSubm
     }
   }, [initialData]);
 
-                const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-        const { name, value } = e.target;
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
 
-        setFormData(prev => ({
-            ...prev,
-            [name]: name === 'price'
-                ? parseFloat(value.replace(',', '.')) || 0
-                : value
-            }));
-        };
+    if (name === 'price') {
+      const numericValue = parseFloat(value.replace(',', '.')) || 0;
+      if (numericValue < 5) {
+        setPriceError('O preço mínimo é R$ 5,00');
+      } else {
+        setPriceError('');
+      }
+    }
+
+    setFormData(prev => ({
+      ...prev,
+      [name]: name === 'price' || name === 'stock'
+        ? parseFloat(value.replace(',', '.')) || 0 
+        : value
+    }));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (formData.price < 5) {
+      setPriceError('O preço mínimo é R$ 5,00');
+      return;
+    }
     await onSubmit(formData);
   };
+
+  const isFormValid = formData.price >= 5 && 
+                     formData.name.trim() !== '' && 
+                     formData.description.trim() !== '' && 
+                     formData.category.trim() !== '' && 
+                     formData.stock >= 0;
 
   return (
     <form onSubmit={handleSubmit} style={{ maxWidth: '600px', margin: '0 auto' }}>
@@ -90,64 +110,70 @@ const ProductForm: React.FC<ProductFormProps> = ({ initialData, onSubmit, isSubm
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
         <div>
-            <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: '#4a5568' }}>
+          <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: '#4a5568' }}>
             Preço (R$)
-            </label>
-            <div style={{ display: 'flex', alignItems: 'center' }}>
+          </label>
+          <div style={{ display: 'flex', alignItems: 'center' }}>
             <span style={{
-                padding: '10px',
-                backgroundColor: '#edf2f7',
-                border: '1px solid #e2e8f0',
-                borderTopLeftRadius: '4px',
-                borderBottomLeftRadius: '4px',
-                fontSize: '16px',
-                color: '#4a5568'
+              padding: '10px',
+              backgroundColor: '#edf2f7',
+              border: '1px solid #e2e8f0',
+              borderTopLeftRadius: '4px',
+              borderBottomLeftRadius: '4px',
+              fontSize: '16px',
+              color: '#4a5568'
             }}>
-                R$
+              R$
             </span>
-
             <input
-  type="text"
-  name="price"
-  value={formData.price}
-  onChange={handleChange}
-  inputMode="decimal"
-  pattern="^\d+([.,]\d{0,2})?$"
-  required
-  style={{
-    flex: 1,
-    padding: '10px',
-    borderTopRightRadius: '4px',
-    borderBottomRightRadius: '4px',
-    border: '1px solid #e2e8f0',
-    borderLeft: 'none',
-    fontSize: '16px'
-  }}
-/>
-            </div>
+              type="text"
+              name="price"
+              value={formData.price}
+              onChange={handleChange}
+              inputMode="decimal"
+              pattern="^\d+([.,]\d{0,2})?$"
+              required
+              min="5"
+              style={{
+                flex: 1,
+                padding: '10px',
+                borderTopRightRadius: '4px',
+                borderBottomRightRadius: '4px',
+                border: '1px solid #e2e8f0',
+                borderLeft: 'none',
+                fontSize: '16px',
+                borderColor: priceError ? '#e53e3e' : '#e2e8f0'
+              }}
+            />
+          </div>
+          {priceError && (
+            <p style={{ color: '#e53e3e', fontSize: '14px', marginTop: '4px' }}>
+              {priceError}
+            </p>
+          )}
         </div>
 
         <div>
-            <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: '#4a5568' }}>
+          <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: '#4a5568' }}>
             Estoque
-            </label>
-            <input
-            type="text"
+          </label>
+          <input
+            type="number"
             name="stock"
             value={formData.stock}
             onChange={handleChange}
             min="0"
             required
             style={{
-                width: '100%',
-                padding: '10px',
-                borderRadius: '4px',
-                border: '1px solid #e2e8f0',
-                fontSize: '16px'
+              width: '100%',
+              padding: '10px',
+              borderRadius: '4px',
+              border: '1px solid #e2e8f0',
+              fontSize: '16px'
             }}
-            />
+          />
         </div>
-        </div>
+      </div>
 
       <div style={{ marginBottom: '16px' }}>
         <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: '#4a5568' }}>
@@ -190,16 +216,16 @@ const ProductForm: React.FC<ProductFormProps> = ({ initialData, onSubmit, isSubm
 
       <button
         type="submit"
-        disabled={isSubmitting}
+        disabled={isSubmitting || !isFormValid}
         style={{
-          backgroundColor: '#4299e1',
+          backgroundColor: isFormValid ? '#4299e1' : '#a0aec0',
           color: 'white',
           border: 'none',
           borderRadius: '4px',
           padding: '12px 24px',
           fontSize: '16px',
           fontWeight: '600',
-          cursor: 'pointer',
+          cursor: isFormValid ? 'pointer' : 'not-allowed',
           width: '100%',
           opacity: isSubmitting ? '0.7' : '1'
         }}

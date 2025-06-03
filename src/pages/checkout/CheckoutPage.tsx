@@ -4,33 +4,68 @@ import axios from "axios";
 import toast from "react-hot-toast";
 import { useLocation } from 'react-router-dom';
 
-type PaymentMethod = 'credit-card' | 'pix' | 'boleto';
+type PaymentMethod = 'credit_card' | 'pix' | 'boleto';
+
+interface Product {
+  id: string;
+  name: string;
+  description: string;
+  price: number;
+}
+
+interface OrderResponse {
+  order: {
+    id: string;
+    order_number: string;
+    status: string;
+  };
+  pix?: {
+    encodedImage: string;
+    payload: string;
+  };
+  boleto?: {
+    identificationField: string;
+    barCode: string;
+    bankSlipUrl: string;
+    dueDate: string;
+  };
+  credit_card?: {
+    status: string;
+    authorized: boolean;
+    message: string;
+    last4: string;
+    brand: string;
+  };
+}
 
 export default function CheckoutPage() {
   const navigate = useNavigate();
   const [isProcessing, setIsProcessing] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('credit-card');
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('credit_card');
+  const [orderResponse, setOrderResponse] = useState<OrderResponse | null>(null);
+  const [showPaymentDetails, setShowPaymentDetails] = useState(false);
 
   const [formData, setFormData] = useState({
     fullName: "",
     email: "",
+    phone: "",
+    document: "34547124086", 
     address: "",
+    number: "",
+    neighborhood: "",
     city: "",
     postalCode: "",
-    country: "",
-    // Campos de cartão de crédito
+    country: "Brasil", 
     cardName: "",
     cardNumber: "",
     cardExpiry: "",
-    cardCvc: ""
+    cardCvc: "",
+    installments: "1"
   });
+
   const location = useLocation();
   const product = location.state?.product as Product;
-    type Product = {
-      name: string;
-      description: string;
-      price: number;
-    };
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({
@@ -48,26 +83,55 @@ export default function CheckoutPage() {
     setIsProcessing(true);
 
     try {
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      const orderData = {
+        customer: {
+          name: formData.fullName,
+          email: formData.email,
+          phone: formData.phone,
+          document: formData.document,
+          address: {
+            street: formData.address,
+            number: formData.number,
+            neighborhood: formData.neighborhood,
+            city: formData.city,
+            zip_code: formData.postalCode,
+            country: formData.country
+          }
+        },
+        payment_method: paymentMethod,
+        installments: parseInt(formData.installments),
+        items: [{
+          product_id: product.id, 
+          quantity: 1,
+        }],
+        credit_card: paymentMethod === 'credit_card' ? {
+          holder_name: formData.cardName,
+          number: formData.cardNumber.replace(/\s/g, ''),
+          expiry_month: formData.cardExpiry.split("/")[0],
+          expiry_year: "20" + formData.cardExpiry.split("/")[1],
+          cvv: formData.cardCvc
+        } : undefined
+      };
+
+      const response = await axios.post('http://localhost:8000/api/orders', orderData);
+      setOrderResponse(response.data);
+      setShowPaymentDetails(true);
       
-      // Simular diferentes mensagens baseadas no método de pagamento
-      if (paymentMethod === 'credit-card') {
+      if (paymentMethod === 'credit_card') {
         toast.success("Pagamento com cartão processado com sucesso!");
       } else if (paymentMethod === 'pix') {
         toast.success("QR Code do PIX gerado com sucesso!");
       } else {
         toast.success("Boleto gerado com sucesso!");
       }
-      
-      navigate("/order-confirmation");
     } catch (error) {
+      console.error('Error creating order:', error);
       toast.error("Erro ao processar o pagamento. Tente novamente.");
     } finally {
       setIsProcessing(false);
     }
   };
 
-  // Estilos
   const styles = {
     container: {
       minHeight: '100vh',
@@ -196,35 +260,138 @@ export default function CheckoutPage() {
     paymentIcon: {
       width: '24px',
       height: '24px'
+    },
+    paymentDetails: {
+      backgroundColor: '#f0fff4',
+      padding: '20px',
+      borderRadius: '8px',
+      border: '1px solid #c6f6d5',
+      marginTop: '20px'
+    },
+    qrCodeImage: {
+      maxWidth: '200px',
+      margin: '0 auto',
+      display: 'block'
+    },
+    boletoInfo: {
+      backgroundColor: '#fffaf0',
+      padding: '15px',
+      borderRadius: '5px',
+      border: '1px solid #feebc8',
+      marginTop: '10px'
     }
   };
+
+  if (showPaymentDetails && orderResponse) {
+    return (
+      <div style={styles.container}>
+        <div style={styles.mainCard}>
+          <div style={styles.header}>
+            <h1 style={styles.headerTitle}>Pedido Realizado com Sucesso!</h1>
+            <p style={styles.headerSubtitle}>Aqui estão os detalhes do seu pagamento</p>
+          </div>
+
+          <div style={{ padding: '32px' }}>
+            <h2 style={styles.sectionTitle}>Resumo do Pedido</h2>
+            <p><strong>Número do Pedido:</strong> {orderResponse.order.order_number}</p>
+            <p><strong>Status:</strong> {orderResponse.order.status}</p>
+            <p><strong>Produto:</strong> {product?.name}</p>
+            <p><strong>Valor:</strong> R$ {product?.price.toFixed(2)}</p>
+
+            {paymentMethod === 'pix' && orderResponse.pix && (
+              <div style={styles.paymentDetails}>
+                <h3 style={styles.sectionTitle}>Pagamento via PIX</h3>
+                <p>Escaneie o QR Code abaixo para realizar o pagamento:</p>
+                <img 
+                  src={`data:image/png;base64,${orderResponse.pix.encodedImage}`} 
+                  alt="QR Code PIX" 
+                  style={styles.qrCodeImage}
+                />
+                <p style={{ wordBreak: 'break-all', textAlign: 'center', marginTop: '10px' }}>
+                  <strong>Código PIX:</strong> {orderResponse.pix.payload}
+                </p>
+              </div>
+            )}
+
+            {paymentMethod === 'boleto' && orderResponse.boleto && (
+              <div style={styles.paymentDetails}>
+                <h3 style={styles.sectionTitle}>Pagamento via Boleto</h3>
+                <p>Linha digitável:</p>
+                <div style={styles.boletoInfo}>
+                  {orderResponse.boleto.identificationField}
+                </div>
+                <p style={{ marginTop: '10px' }}>
+                  <strong>Vencimento:</strong> {new Date(orderResponse.boleto.dueDate).toLocaleDateString()}
+                </p>
+                <a 
+                  href={orderResponse.boleto.bankSlipUrl} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  style={{
+                    display: 'inline-block',
+                    marginTop: '15px',
+                    backgroundColor: '#48bb78',
+                    color: 'white',
+                    padding: '10px 15px',
+                    borderRadius: '5px',
+                    textDecoration: 'none'
+                  }}
+                >
+                  Visualizar Boleto
+                </a>
+              </div>
+            )}
+
+            {paymentMethod === 'credit_card' && orderResponse.credit_card && (
+              <div style={styles.paymentDetails}>
+                <h3 style={styles.sectionTitle}>Pagamento via Cartão de Crédito</h3>
+                <p><strong>Status:</strong> {orderResponse.credit_card.message}</p>
+                <p><strong>Bandeira:</strong> {orderResponse.credit_card.brand}</p>
+                <p><strong>Final do cartão:</strong> **** **** **** {orderResponse.credit_card.last4}</p>
+              </div>
+            )}
+
+            <button
+              onClick={() => navigate('/')}
+              style={{
+                ...styles.submitButton,
+                backgroundColor: '#48bb78',
+                marginTop: '30px'
+              }}
+            >
+              Voltar para a Loja
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={styles.container}>
       <div style={styles.mainCard}>
-        {/* Header */}
-          <div style={{ marginTop: '20px', backgroundColor: '#edf2f7', padding: '6px',}}>
-        <h3 style={{ marginBottom: '10px', fontSize: '26px', color: '#2d3748' }}>Resumo do Produto</h3>
-        {product ? (
-          <>
-            <p><strong>Produto:</strong> {product.name}</p>
-            <p><strong>Descrição:</strong> {product.description}</p>
-            <p><strong>Preço:</strong> R$ {Number(product.price).toFixed(2)}</p>
-          </>
-        ) : (
-          <p style={{ color: '#e53e3e' }}>Produto não carregado corretamente. Volte e selecione um produto.</p>
-        )}
-      </div>
+        <div style={{ marginTop: '20px', backgroundColor: '#edf2f7', padding: '16px' }}>
+          <h3 style={{ marginBottom: '10px', fontSize: '20px', color: '#2d3748' }}>Resumo do Produto</h3>
+          {product ? (
+            <>
+              <p><strong>Produto:</strong> {product.name}</p>
+              <p><strong>Descrição:</strong> {product.description}</p>
+              <p><strong>Preço:</strong> R$ {product.price.toFixed(2)}</p>
+            </>
+          ) : (
+            <p style={{ color: '#e53e3e' }}>Produto não carregado corretamente. Volte e selecione um produto.</p>
+          )}
+        </div>
+
         <div style={styles.header}>
           <h1 style={styles.headerTitle}>Finalize seu Pedido</h1>
           <p style={styles.headerSubtitle}>Preencha os detalhes para concluir sua compra</p>
         </div>
 
         <div style={styles.contentWrapper}>
-          {/* Formulário */}
           <div style={styles.formContainer}>
             <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-              <h2 style={styles.sectionTitle}>Informações de Entrega</h2>
+              <h2 style={styles.sectionTitle}>Informações Pessoais</h2>
 
               <div>
                 <label htmlFor="fullName" style={styles.inputLabel}>Nome Completo</label>
@@ -255,6 +422,22 @@ export default function CheckoutPage() {
               </div>
 
               <div>
+                <label htmlFor="phone" style={styles.inputLabel}>Telefone</label>
+                <input
+                  id="phone"
+                  name="phone"
+                  type="tel"
+                  required
+                  value={formData.phone}
+                  onChange={handleChange}
+                  style={styles.inputField}
+                  placeholder="(00) 00000-0000"
+                />
+              </div>
+
+              <h2 style={styles.sectionTitle}>Endereço de Entrega</h2>
+
+              <div>
                 <label htmlFor="address" style={styles.inputLabel}>Endereço</label>
                 <input
                   id="address"
@@ -264,8 +447,38 @@ export default function CheckoutPage() {
                   value={formData.address}
                   onChange={handleChange}
                   style={styles.inputField}
-                  placeholder="Rua, número, complemento"
+                  placeholder="Rua, avenida, etc."
                 />
+              </div>
+
+              <div style={styles.grid2Cols}>
+                <div>
+                  <label htmlFor="number" style={styles.inputLabel}>Número</label>
+                  <input
+                    id="number"
+                    name="number"
+                    type="text"
+                    required
+                    value={formData.number}
+                    onChange={handleChange}
+                    style={styles.inputField}
+                    placeholder="Número"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="neighborhood" style={styles.inputLabel}>Bairro</label>
+                  <input
+                    id="neighborhood"
+                    name="neighborhood"
+                    type="text"
+                    required
+                    value={formData.neighborhood}
+                    onChange={handleChange}
+                    style={styles.inputField}
+                    placeholder="Bairro"
+                  />
+                </div>
               </div>
 
               <div style={styles.grid2Cols}>
@@ -298,29 +511,14 @@ export default function CheckoutPage() {
                 </div>
               </div>
 
-              <div>
-                <label htmlFor="country" style={styles.inputLabel}>País</label>
-                <input
-                  id="country"
-                  name="country"
-                  type="text"
-                  required
-                  value={formData.country}
-                  onChange={handleChange}
-                  style={styles.inputField}
-                  placeholder="Seu país"
-                />
-              </div>
-
               <h2 style={styles.sectionTitle}>Método de Pagamento</h2>
 
-              {/* Opções de Pagamento */}
               <div 
                 style={{ 
                   ...styles.paymentMethodCard, 
-                  ...(paymentMethod === 'credit-card' ? styles.paymentMethodCardSelected : {}) 
+                  ...(paymentMethod === 'credit_card' ? styles.paymentMethodCardSelected : {}) 
                 }}
-                onClick={() => handlePaymentMethodChange('credit-card')}
+                onClick={() => handlePaymentMethodChange('credit_card')}
               >
                 <h3 style={styles.paymentMethodTitle}>
                   <svg style={styles.paymentIcon} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -330,7 +528,7 @@ export default function CheckoutPage() {
                 </h3>
                 <p style={styles.paymentMethodDescription}>Pague com cartão de crédito em até 12x</p>
                 
-                {paymentMethod === 'credit-card' && (
+                {paymentMethod === 'credit_card' && (
                   <div style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
                     <div>
                       <label htmlFor="cardName" style={styles.inputLabel}>Nome no Cartão</label>
@@ -389,6 +587,21 @@ export default function CheckoutPage() {
                         />
                       </div>
                     </div>
+
+                    <div>
+                      <label htmlFor="installments" style={styles.inputLabel}>Parcelas</label>
+                      <select
+                        id="installments"
+                        name="installments"
+                        value={formData.installments}
+                        onChange={(e) => setFormData({...formData, installments: e.target.value})}
+                        style={styles.inputField}
+                      >
+                        {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(num => (
+                          <option key={num} value={num}>{num}x de R$ {(product.price / num).toFixed(2)}</option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
                 )}
               </div>
@@ -408,26 +621,6 @@ export default function CheckoutPage() {
                   PIX
                 </h3>
                 <p style={styles.paymentMethodDescription}>Pagamento instantâneo com chave PIX</p>
-                
-                {paymentMethod === 'pix' && (
-                  <div style={{ marginTop: '16px', textAlign: 'center' }}>
-                    <p style={{ color: '#718096', marginBottom: '16px' }}>Ao confirmar o pedido, geraremos um QR Code para pagamento</p>
-                    <div style={{ 
-                      backgroundColor: '#f0f4ff', 
-                      padding: '20px', 
-                      borderRadius: '8px',
-                      display: 'inline-block'
-                    }}>
-                      <svg width="120" height="120" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <rect x="3" y="3" width="18" height="18" rx="2" stroke="#667eea" strokeWidth="2"/>
-                        <rect x="7" y="7" width="4" height="4" fill="#667eea"/>
-                        <rect x="7" y="13" width="4" height="4" fill="#667eea"/>
-                        <rect x="13" y="7" width="4" height="4" fill="#667eea"/>
-                        <rect x="13" y="13" width="4" height="4" fill="#667eea"/>
-                      </svg>
-                    </div>
-                  </div>
-                )}
               </div>
 
               <div 
@@ -446,26 +639,6 @@ export default function CheckoutPage() {
                   Boleto Bancário
                 </h3>
                 <p style={styles.paymentMethodDescription}>Pague em qualquer agência bancária ou internet banking</p>
-                
-                {paymentMethod === 'boleto' && (
-                  <div style={{ marginTop: '16px', textAlign: 'center' }}>
-                    <p style={{ color: '#718096', marginBottom: '16px' }}>Ao confirmar o pedido, geraremos um boleto para pagamento</p>
-                    <div style={{ 
-                      backgroundColor: '#f0f4ff', 
-                      padding: '20px', 
-                      borderRadius: '8px',
-                      display: 'inline-block'
-                    }}>
-                      <svg width="120" height="60" viewBox="0 0 120 60" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <rect x="1" y="1" width="118" height="58" rx="2" stroke="#667eea" strokeWidth="2"/>
-                        <rect x="10" y="10" width="100" height="10" rx="1" fill="#667eea" opacity="0.3"/>
-                        <rect x="10" y="25" width="80" height="5" rx="1" fill="#667eea" opacity="0.3"/>
-                        <rect x="10" y="35" width="60" height="5" rx="1" fill="#667eea" opacity="0.3"/>
-                        <rect x="10" y="45" width="40" height="5" rx="1" fill="#667eea" opacity="0.3"/>
-                      </svg>
-                    </div>
-                  </div>
-                )}
               </div>
 
               <button

@@ -26,7 +26,7 @@ export default function LoginPage() {
 
   const onSubmit = async (data: LoginFormData) => {
     try {
-      const response = await axios.post("http://localhost:8000/api/login", data);
+      const response = await axios.post("http://localhost:8000/api/auth/login", data);
       const token = response.data.token;
       localStorage.setItem("token", token);
       toast.success("Login realizado com sucesso!");
@@ -320,23 +320,6 @@ export default function LoginPage() {
                 <path d="M6.29 18.251C13.837 18.251 17.965 11.998 17.965 6.576C17.965 6.398 17.965 6.221 17.953 6.043C18.756 5.458 19.449 4.741 20 3.92C19.252 4.262 18.457 4.484 17.643 4.577C18.5 4.058 19.141 3.209 19.448 2.209C18.642 2.69 17.761 3.034 16.842 3.21C16.088 2.399 15.016 1.92 13.846 1.92C11.576 1.92 9.748 3.748 9.748 6.018C9.748 6.341 9.784 6.657 9.855 6.961C6.44 6.789 3.416 5.111 1.392 2.598C1.038 3.179 0.831 3.848 0.831 4.557C0.831 5.892 1.562 7.079 2.652 7.787C1.988 7.765 1.356 7.583 0.8 7.275V7.327C0.8 9.391 2.178 11.106 4.092 11.49C3.748 11.585 3.387 11.635 3.016 11.635C2.75 11.635 2.492 11.608 2.239 11.56C2.765 13.252 4.279 14.476 6.075 14.511C4.67 15.635 2.898 16.318 0.981 16.318C0.654 16.318 0.332 16.3 0 16.266C1.816 17.456 3.968 18.084 6.29 18.084" fill="#4A5568"/>
               </svg>
             </button>
-          </div>
-
-          <div style={{
-            marginTop: '24px',
-            textAlign: 'center'
-          }}>
-            <p style={{
-              fontSize: '14px',
-              color: '#718096'
-            }}>
-              Não tem uma conta?{' '}
-              <a href="#" style={{
-                color: '#667eea',
-                fontWeight: '600',
-                textDecoration: 'none'
-              }}>Cadastre-se</a>
-            </p>
           </div>
         </div>
       </div>

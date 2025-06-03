@@ -99,6 +99,7 @@ const ProductItem: React.FC<ProductItemProps> = ({ product, onDelete }) => {
             navigate('/checkout', {
             state: {
                 product: {
+                id: product.id,
                 name: product.name,
                 description: product.description,
                 price: product.price
